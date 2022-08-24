@@ -1,0 +1,32 @@
+{
+  "name": "ufe-registry",
+  "version": "1.0.0",
+  "description": "registry for microfront-end elements - supportive package for customizing milung/ufe-controller containers",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": ["lib/**/*"],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/milung/ufe-registry.git"
+  },
+  "keywords": [
+    "micro-frontend",
+    "web-components"
+  ],
+  "author": "Milan Unger",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/milung/ufe-registry/issues"
+  },
+  "homepage": "https://github.com/milung/ufe-registry#readme",
+  "devDependencies": {
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "stencil-router-v2": "^0.6.0"
+  }
+}
