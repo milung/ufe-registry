@@ -129,7 +129,7 @@ class UfeRegistryImpl implements UfeRegistry{
        return  UfeRegistryImpl.webConfig?.user?.id;
     }
 
-    public href(href: string, router = this.router)  {
+    public href(href: string, router = this.router, stopPropagating = false)  {
         return {
             href,
             onClick: (ev: any) => {
@@ -140,6 +140,10 @@ class UfeRegistryImpl implements UfeRegistry{
                     return;
                 }
                 ev?.preventDefault();
+                if(stopPropagating) {
+                    ev?.stopPropagation(); 
+                    ev?.stopImmediatePropagation();
+                }
                 router?.push(href);
             },
         };
