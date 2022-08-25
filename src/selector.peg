@@ -1,0 +1,30 @@
+
+
+Expression
+  = head:Term tail:(_ "||" _ Term)+ {
+       return { operation: "or", operands: [ head, ...tail.map(element=> element[3])] };
+    }
+  / Term
+
+Term
+  = head:Factor tail:(_ "&&" _ Factor)+ {
+      return { operation: "and", operands: [ head, ...tail.map(element=> element[3])] };
+    }
+  / Factor
+  
+Factor
+  = "(" _ expr:Expression _ ")" { return expr; }
+  / "!" _ expr:Expression { return { operation: "not", operands: [expr] };}
+  / LabelExpr
+
+LabelExpr 
+	= _ l:Label _ ( "===" / "==" / "=") _ v:Label { return { operation: "equals", operands: [l,v] };}
+    / _ l:Label _ ("!="/"!==") _ v:Label {return { operation: "not", operands: [ { operation: "equals", operands: [l,v] } ] }; }
+    / _ l:Label _ { return { operation: "exists", operands: [l] };}
+    
+Label "label"
+  = _ l:[^\n\r=!&|")]+ _ { return l.join(""); }
+  / _ "\"" l:[^"]* "\"" _ { return l.join(""); }
+
+_ "whitespace"
+  = [ \t\n\r]*

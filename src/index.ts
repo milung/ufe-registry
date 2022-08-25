@@ -1,4 +1,5 @@
 import { createRouter, Router } from "stencil-router-v2";
+import {SelectorExpression, SelectorParser } from "./parser"
 
 /**  Micro-Front-End Module specification */
 export interface UfeModule {
@@ -65,6 +66,9 @@ interface UfeConfiguration {
     }
 }
 
+
+
+
 /** Primary API interface for accessing registered micro apps  */
 export interface UfeRegistry {
 
@@ -86,10 +90,10 @@ export interface UfeRegistry {
     href(href: string, router?: Router, stopPropagation?:boolean): {href: any; onClick: (ev: any) => void;};
 
     /** list of navigable web-components - aka micro applications */
-    navigableApps(selector?: { [name: string]: string} ): UfeWebApp[] ;
+    navigableApps(selector?:  string ): UfeWebApp[] ;
 
     /** list of context specific web components */
-    contextElements(context: string, selector?: { [name: string]: string}): UfeContext[] ;
+    contextElements(context: string, selector?: string): UfeContext[] ;
 
     /** dynamically loads module dependnecies */
     preloadDependenciesAsync(elements: UfeModule[]): Promise<void>;
@@ -101,6 +105,20 @@ export interface UfeRegistry {
 
     /** retrieves information about user */
     get userId(): string|undefined;
+
+    /** Filters list of element returning only elements that fits the selector.
+     * Selector is expression consisting of terms 
+     *  * equality: `label=value`, 
+     *  * inequality: `label!=value`,
+     *  * label existence: `label`
+     *  * logical negation: `!expr`
+     *  * logical or:  `expr1 || expr2`
+     *  * logical and: `expr1 && expr2`
+     *  * block expression: "( expr )"
+     *  
+     */
+    filterElements<T extends UfeElement>(elements: Array<T>, selector?: string): Array<T>
+    
 }
 
 /**  use this function to reliable retrieve instance of 
@@ -118,6 +136,21 @@ export function installUfeRegistry() {
         (window as any).ufeRegistry = await UfeRegistryImpl.instanceAsync(true)
         await (window as any).ufeRegistry.createAppShell();
     })
+}
+
+/** allows to convert string specified selector into selector object */
+export function readSelector( selector: string|{[label:string]: string}  ):{[label:string]: string}{
+    if( typeof(selector)==="string" )
+    {
+        return selector
+            .split(",")
+            .reduce( (prev: {[label:string]: string} , l) => {
+                const p =  l.split("=");
+                prev[p[0]]=p[1];
+                return prev;
+            }, {})
+    }
+    return selector;
 }
 
 // implementation of the interface
@@ -167,9 +200,10 @@ class UfeRegistryImpl implements UfeRegistry{
         if (path.startsWith('/')) {
             path = path.slice(1)
         }
-        return this._basePathValue + path
+        return this.basePath + path
     }
 
+    
     static async loadComponents() {
         if(UfeRegistryImpl.webConfig != null) {
             return UfeRegistryImpl.webConfig;
@@ -197,9 +231,9 @@ class UfeRegistryImpl implements UfeRegistry{
         })
     }
 
-    navigableApps(selector: { [name: string]: string} = {} ): UfeWebApp[]  {
+    navigableApps(selector: string = "" ): UfeWebApp[]  {
         return this
-            .matchSelector(selector, UfeRegistryImpl.webConfig?.apps ?? [])
+            .matchSelector(UfeRegistryImpl.webConfig?.apps ?? [],selector)
             .sort( (a, b) => b.priority  - a.priority)
             .map( _ => {
                 _.isActive = location.pathname.startsWith(this.rebasePath(_.path))
@@ -207,9 +241,9 @@ class UfeRegistryImpl implements UfeRegistry{
             });
     }
 
-    contextElements(context: string, selector: { [name: string]: string} = {}): UfeContext[]  {
+    contextElements(context: string, selector:string = ""): UfeContext[]  {
         return this
-            .matchSelector(selector, UfeRegistryImpl.webConfig?.contexts ?? [])
+            .matchSelector(UfeRegistryImpl.webConfig?.contexts ?? [], selector)
             .filter(_ => _.contextNames.includes(context));
     }
 
@@ -251,34 +285,61 @@ class UfeRegistryImpl implements UfeRegistry{
             }) 
     }
 
-    private matchSelector<T extends UfeElement>(selector: string | { [name: string]: string} | undefined, elements: T[]): T[]  {
+    private matchSelector<T extends UfeElement>( elements: T[], selector:string ):  T[]  {
         if( elements === undefined  || elements === null || elements === []) return [];
         const metas =  document.getElementsByTagName('meta');
-        let normalizedSelector: { [name: string]: string};
-        // normalize selector
-        if(selector === undefined) {
-            normalizedSelector = {};
-        } else if (typeof selector === 'string') {
-            normalizedSelector = this.splitSelectorString(selector);
-        } else {
-            normalizedSelector = {...selector};
-        }
+        let serverSelector = ""
         // combine with page selector specifier
         for (let i = 0; i < metas.length; i++) {
             if (metas[i].getAttribute('name') === "ufe-selector") {
               const content =  metas[i].getAttribute('content');
               if(content) {
-                  selector = { ...normalizedSelector, ...this.splitSelectorString(content)};
+                serverSelector = content};
               }
             }
-        }
         // filter applications by selector
-        return elements.filter(element => 
-            Object.keys(normalizedSelector)
-                  .every( labelName => 
-                    element.labels && 
-                    normalizedSelector[labelName] === element.labels[labelName])); 
+        return this.filterElements( 
+            this.filterElements(elements, serverSelector), 
+            selector) 
     };
+
+    filterElements<T extends UfeElement>(elements: T[], selector?: string | undefined): T[] {
+        if(!selector){
+            return elements;
+        }
+        const parser = new SelectorParser();
+        const expression = parser.parse(selector) as SelectorExpression;
+        return elements.filter(_ => this.evaluateSelector( _, expression))
+        
+    }
+
+    private evaluateSelector<T extends UfeElement>(element: T, expression: SelectorExpression) : boolean {
+        
+        switch(expression.operation){
+            case "not": 
+                return  ! this.evaluateSelector(element, expression.operands[0] as SelectorExpression)
+            case "exists": {
+                const l = expression.operands[0] as string
+                return   !!element.labels && !!element.labels[l]
+            }
+            case "equals": {
+                const l = expression.operands[0] as string
+                const v = expression.operands[1] as string
+                return   !!element.labels && element.labels[l]==v
+            }
+            case "and": {
+                const left = expression.operands[0] as SelectorExpression;
+                const right = expression.operands[1] as SelectorExpression;
+                return this.evaluateSelector(element, left) && this.evaluateSelector(element, right)
+            }
+            case "or": {
+                const left = expression.operands[0] as SelectorExpression;
+                const right = expression.operands[1] as SelectorExpression;
+                return this.evaluateSelector(element, left) || this.evaluateSelector(element, right)
+            }
+            default: return false
+        }
+    }
 
     private splitSelectorString( selector: string) : { [label: string]: string } {
         return selector
@@ -299,7 +360,7 @@ class UfeRegistryImpl implements UfeRegistry{
               break;
             }
           }
-        const shell = registry.contextElements(context, {})[0] || {
+        const shell = registry.contextElements(context)[0] || {
             element: "ufe-default-shell",
             attributes: [],
             load_url: "",
