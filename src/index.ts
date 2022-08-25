@@ -78,8 +78,12 @@ export interface UfeRegistry {
     /** rebases(prefixes) paths by taking into consideration the basePath */
     rebasePath( path: string): string
 
-    /** helper function to provide elements with navigation functionality */
-    href(href: string, router?: Router): {href: any; onClick: (ev: any) => void;};
+    /** helper function to provide elements with navigation functionality 
+     * If the stopPropafation is set to true, then the propagation of the event 
+     * is stopped - usefull if applied on the elements that has own onClick
+     * event handler that is conflicting with href's navigation handler
+    */
+    href(href: string, router?: Router, stopPropagation?:boolean): {href: any; onClick: (ev: any) => void;};
 
     /** list of navigable web-components - aka micro applications */
     navigableApps(selector?: { [name: string]: string} ): UfeWebApp[] ;
