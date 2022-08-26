@@ -1,6 +1,12 @@
 import { createRouter, Router } from "stencil-router-v2";
 import {SelectorExpression, SelectorParser } from "./parser"
 
+declare global {
+    interface Window {
+      ufeRegistry: UfeRegistry;
+    }
+}
+
 /**  Micro-Front-End Module specification */
 export interface UfeModule {
     /** URL from which the module can be loaded */
@@ -66,9 +72,6 @@ interface UfeConfiguration {
     }
 }
 
-
-
-
 /** Primary API interface for accessing registered micro apps  */
 export interface UfeRegistry {
 
@@ -111,11 +114,15 @@ export interface UfeRegistry {
      *  * equality: `label=value`, 
      *  * inequality: `label!=value`,
      *  * label existence: `label`
-     *  * logical negation: `!expr`
+     *  * logical negation: `!expr` 
      *  * logical or:  `expr1 || expr2`
      *  * logical and: `expr1 && expr2`
      *  * block expression: "( expr )"
      *  
+     * Example of more complex selector: 
+     * ``` my-label && (( ! status = "disabled by owner" || version==latest && minor===2) && feature-flaf!="foreign" )
+     * 
+     * 
      */
     filterElements<T extends UfeElement>(elements: Array<T>, selector?: string): Array<T>
     
@@ -130,27 +137,9 @@ export const getUfeRegistryAsync = () => UfeRegistryImpl.instanceAsync(false);
  **/
 export function installUfeRegistry() {
     window.addEventListener("load", async _ => {
-        if((window as any).ufeRegistry) return;
-
-        await UfeRegistryImpl.loadComponents();
-        (window as any).ufeRegistry = await UfeRegistryImpl.instanceAsync(true)
-        await (window as any).ufeRegistry.createAppShell();
-    })
-}
-
-/** allows to convert string specified selector into selector object */
-export function readSelector( selector: string|{[label:string]: string}  ):{[label:string]: string}{
-    if( typeof(selector)==="string" )
-    {
-        return selector
-            .split(",")
-            .reduce( (prev: {[label:string]: string} , l) => {
-                const p =  l.split("=");
-                prev[p[0]]=p[1];
-                return prev;
-            }, {})
-    }
-    return selector;
+        if(window.ufeRegistry) return;
+        UfeRegistryImpl.instanceAsync(true);
+    }) 
 }
 
 // implementation of the interface
@@ -158,12 +147,12 @@ class UfeRegistryImpl implements UfeRegistry{
 
     private constructor() {};
 
-    private static webConfig: UfeConfiguration|null = null;
+    private webConfig: UfeConfiguration|null = null;
 
     public readonly router: Router = createRouter();
 
     get userId(): string|undefined {
-       return  UfeRegistryImpl.webConfig?.user?.id;
+       return  this.webConfig?.user?.id;
     }
 
     public href(href: string, router = this.router, stopPropagating = false)  {
@@ -204,36 +193,43 @@ class UfeRegistryImpl implements UfeRegistry{
     }
 
     
-    static async loadComponents() {
-        if(UfeRegistryImpl.webConfig != null) {
-            return UfeRegistryImpl.webConfig;
+    private async loadComponents() {
+        if(this.webConfig != null) {
+            return this.webConfig;
         }
         else {
-            const impl = new UfeRegistryImpl();
-            let response = await fetch(`${impl.basePath}fe-config`);
+            
+            let response = await fetch(`${this.basePath}fe-config`);
             if(response.status == 404) {
-                UfeRegistryImpl.webConfig = null
+                this.webConfig = null
                 return;
             }
-            UfeRegistryImpl.webConfig  = await response.json();
-            let preloads = UfeRegistryImpl.webConfig != null ? UfeRegistryImpl.webConfig.preload : [];
-            await impl.preloadDependenciesAsync(preloads)
+            this.webConfig  = await response.json();
+            let preloads = this.webConfig != null ? this.webConfig.preload : [];
+            await this.preloadDependenciesAsync(preloads)
         }
     }
 
-    static async instanceAsync(nowait:boolean = false): Promise<UfeRegistry> {
+    static async instanceAsync(create:boolean = false): Promise<UfeRegistry> {
+        if(create){
+            const ufeRegistry =  new UfeRegistryImpl();
+            await ufeRegistry.loadComponents();
+            await ufeRegistry.createAppShell();
+            window.ufeRegistry = ufeRegistry;
+        }
+        
         return new Promise(async ( resolve, _) => {
-            while(!nowait && !((window as any).ufeRegistry) )
+            while(!(window.ufeRegistry) )
             {
                 await new Promise(resolve => setTimeout(resolve, 250));
             }
-            resolve(new UfeRegistryImpl());
+            resolve(window.ufeRegistry);
         })
     }
 
     navigableApps(selector: string = "" ): UfeWebApp[]  {
         return this
-            .matchSelector(UfeRegistryImpl.webConfig?.apps ?? [],selector)
+            .matchSelector(this.webConfig?.apps ?? [],selector)
             .sort( (a, b) => b.priority  - a.priority)
             .map( _ => {
                 _.isActive = location.pathname.startsWith(this.rebasePath(_.path))
@@ -243,7 +239,7 @@ class UfeRegistryImpl implements UfeRegistry{
 
     contextElements(context: string, selector:string = ""): UfeContext[]  {
         return this
-            .matchSelector(UfeRegistryImpl.webConfig?.contexts ?? [], selector)
+            .matchSelector(this.webConfig?.contexts ?? [], selector)
             .filter(_ => _.contextNames.includes(context));
     }
 
@@ -341,17 +337,7 @@ class UfeRegistryImpl implements UfeRegistry{
         }
     }
 
-    private splitSelectorString( selector: string) : { [label: string]: string } {
-        return selector
-                .split(/(\,|;)/)
-                .map(_=> _.split('=', 2))
-                .reduce( (acc: {[name: string]: string}, keyValue) => { 
-                    acc[keyValue[0]] = keyValue[1]; return acc 
-                }, {} );
-    }
-
-    async createAppShell() {
-        const registry = await UfeRegistryImpl.instanceAsync();
+    private async createAppShell() {
         const metas =  document.getElementsByTagName('meta');
         var context: string = "";
         for (let i = 0; i < metas.length; i++) {
@@ -360,13 +346,13 @@ class UfeRegistryImpl implements UfeRegistry{
               break;
             }
           }
-        const shell = registry.contextElements(context)[0] || {
+        const shell = this.contextElements(context)[0] || {
             element: "ufe-default-shell",
             attributes: [],
             load_url: "",
             roles: ["*"]
         };
-        await registry.preloadDependenciesAsync([shell]);
+        await this.preloadDependenciesAsync([shell]);
 
         const element = document.createElement(shell.element);
         shell.attributes.forEach( 
