@@ -64,7 +64,10 @@ npm i --save ufe-registry
 
     return (
       <Host>
-        {functions.map( this.ufeRegistry.loadAndRenderElement)}
+        <my-custom-element>
+          {functions.map(e => this.ufeRegistry.loadAndRenderElement(e, {"slot": "menu"}))}
+          // other content
+        <my-custom-element>
       </Host>
     )
   }

@@ -107,6 +107,12 @@ export interface UfeRegistry {
      */
     elementHtmlText(element: UfeElement): string;
 
+    /** Loads element dependencies and renders the JSX DOM element for the element. 
+     *  Optional `extraAttributes` will be 
+     *  applied to the element (or override the original attributes)
+     */
+    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any } ):any;
+
     /** retrieves information about user */
     get userId(): string|undefined;
 
@@ -253,10 +259,19 @@ class UfeRegistryImpl implements UfeRegistry{
         return content;
     }
 
-    loadAndRenderElement(element: UfeElement):any {
+    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any }):any {
         this.preloadDependenciesAsync([element]);
         const El = element.element;
-        const attr = element.attributes.reduce( (acc, a) => { acc[a.name] = a.value; return acc}, {} as {[name:string]:any})
+        
+        const attr = Object.assign(
+            {}, 
+            extraAttributes, 
+            element.attributes.reduce( 
+                (acc, a) => { 
+                    acc[a.name] = a.value;
+                    return acc}, {} as {[name:string]:any
+                })
+        );
         return (<El { ...attr }></El>)
     }
 
