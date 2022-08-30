@@ -1,5 +1,6 @@
 import { createRouter, Router } from "stencil-router-v2";
 import {SelectorExpression, SelectorParser } from "./parser"
+import {  h } from '@stencil/core';
 
 declare global {
     interface Window {
@@ -250,6 +251,13 @@ class UfeRegistryImpl implements UfeRegistry{
         });
         content += `></${app.element}>`;
         return content;
+    }
+
+    loadAndRenderElement(element: UfeElement):any {
+        this.preloadDependenciesAsync([element]);
+        const El = element.element;
+        const attr = element.attributes.reduce( (acc, a) => { acc[a.name] = a.value; return acc}, {} as {[name:string]:any})
+        return (<El { ...attr }></El>)
     }
 
     async preloadDependenciesAsync(modules: UfeModule[]) {

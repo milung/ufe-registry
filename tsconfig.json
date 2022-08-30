@@ -6,7 +6,9 @@
       "declaration": true,
       "outDir": "./lib",
       "strict": true,
-      "allowJs": true
+      "allowJs": true,
+      "jsx": "react",
+      "jsxFactory": "h"
     },
     "include": ["src"],
     "exclude": ["node_modules", "**/__tests__/*"]
