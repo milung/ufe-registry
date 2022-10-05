@@ -305,7 +305,7 @@ class UfeRegistryImpl implements UfeRegistry{
     }
 
     private matchSelector<T extends UfeElement>( elements: T[], selector:string ):  T[]  {
-        if( elements === undefined  || elements === null || elements === []) return [];
+        if( elements === undefined  || elements === null || elements.length == 0) return [];
         const metas =  document.getElementsByTagName('meta');
         let serverSelector = ""
         // combine with page selector specifier
