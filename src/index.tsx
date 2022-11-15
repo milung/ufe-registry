@@ -55,8 +55,11 @@ export interface UfeContext extends UfeElement {
  *  backed microfrontend controller then this information is made available
  */
 interface UfeUserInfo {
-    /** typically email */
+    /** user id or email */
     id: string 
+
+    /** user id or email */
+    email: string 
 
     /** preferred name, user name, or email, depence on the system configuration */
     name: string
