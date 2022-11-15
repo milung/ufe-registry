@@ -51,6 +51,20 @@ export interface UfeContext extends UfeElement {
     contextNames: string[];
 }
 
+/** if user is logged in and userinfo is proxied in the request headers to the 
+ *  backed microfrontend controller then this information is made available
+ */
+interface UfeUserInfo {
+    /** typically email */
+    id: string 
+
+    /** preferred name, user name, or email, depence on the system configuration */
+    name: string
+
+    /** string of groups or roles the user belongs to - depends on the system configuration */
+    roles: string[]
+}
+
 /** This configuration is provided by ufe-controller, 
  *  Do not use directly, instead use UfeRegistry interface
  */
@@ -66,12 +80,10 @@ interface UfeConfiguration {
     /** true if current user is anonymous */
     anonymous?: boolean;
     /** user idenityt as provided by the controller */
-    user?: {
-        id: string;
-        name: string;
-        roles: string;
-    }
+    user?: UfeUserInfo
 }
+
+
 
 /** Primary API interface for accessing registered micro apps  */
 export interface UfeRegistry {
@@ -115,6 +127,9 @@ export interface UfeRegistry {
 
     /** retrieves information about user */
     get userId(): string|undefined;
+
+    /** retrieves information about user */
+    get userinfo(): UfeUserInfo|undefined;
 
     /** Filters list of element returning only elements that fits the selector.
      * Selector is expression consisting of terms 
@@ -160,6 +175,10 @@ class UfeRegistryImpl implements UfeRegistry{
 
     get userId(): string|undefined {
        return  this.webConfig?.user?.id;
+    }
+
+    get userinfo(): UfeUserInfo|undefined {
+        return this.webConfig?.user;
     }
 
     public href(href: string, router = this.router, stopPropagating = false)  {
