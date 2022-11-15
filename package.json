@@ -1,6 +1,6 @@
 {
   "name": "ufe-registry",
-  "version": "1.3.5",
+  "version": "1.4.0",
   "description": "registry for microfront-end elements - supportive package for customizing milung/ufe-controller containers",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
