@@ -1,17 +1,17 @@
 import { createRouter, Router } from "stencil-router-v2";
-import {SelectorExpression, SelectorParser } from "./parser"
-import {  h } from '@stencil/core';
+import { SelectorExpression, SelectorParser } from "./parser"
+import { h } from '@stencil/core';
 
 declare global {
     interface Window {
-      ufeRegistry: UfeRegistry;
+        ufeRegistry: UfeRegistry;
     }
 }
 
 /**  Micro-Front-End Module specification */
 export interface UfeModule {
     /** URL from which the module can be loaded */
-    load_url: string, 
+    load_url: string,
     /** List of URLs to CSS files to be loaded with the module */
     styles?: string[],
 }
@@ -20,16 +20,16 @@ export interface UfeElement extends UfeModule {
     element: string,
     /** list of preconfigured attributes for the element 
      * when element tag is rendered */
-    attributes: Array<{name: string, value: any}>,
+    attributes: Array<{ name: string, value: any }>,
     /** list of labels associated with the element.
      * Used to select the subset of elements from the list
      */
-    labels?: {[name: string]: string},
+    labels?: { [name: string]: string },
     /** Roles of users that shall see this element */
     roles?: string[],
 }
 
-export interface UfeWebApp extends UfeElement{
+export interface UfeWebApp extends UfeElement {
     /** Title of the navigable micro application */
     title: string;
     /** Human readable description of the application */
@@ -56,10 +56,10 @@ export interface UfeContext extends UfeElement {
  */
 interface UfeUserInfo {
     /** user id or email */
-    id: string 
+    id: string
 
     /** user id or email */
-    email: string 
+    email: string
 
     /** preferred name, user name, or email, depence on the system configuration */
     name: string
@@ -99,20 +99,20 @@ export interface UfeRegistry {
     basePath: string;
 
     /** rebases(prefixes) paths by taking into consideration the basePath */
-    rebasePath( path: string): string
+    rebasePath(path: string): string
 
     /** helper function to provide elements with navigation functionality 
      * If the stopPropafation is set to true, then the propagation of the event 
      * is stopped - usefull if applied on the elements that has own onClick
      * event handler that is conflicting with href's navigation handler
     */
-    href(href: string, router?: Router, stopPropagation?:boolean): {href: any; onClick: (ev: any) => void;};
+    href(href: string, router?: Router, stopPropagation?: boolean): { href: any; onClick: (ev: any) => void; };
 
     /** list of navigable web-components - aka micro applications */
-    navigableApps(selector?:  string ): UfeWebApp[] ;
+    navigableApps(selector?: string): UfeWebApp[];
 
     /** list of context specific web components */
-    contextElements(context: string, selector?: string): UfeContext[] ;
+    contextElements(context: string, selector?: string): UfeContext[];
 
     /** dynamically loads module dependnecies */
     preloadDependenciesAsync(elements: UfeModule[]): Promise<void>;
@@ -126,13 +126,13 @@ export interface UfeRegistry {
      *  Optional `extraAttributes` will be 
      *  applied to the element (or override the original attributes)
      */
-    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any } ):any;
+    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any }): any;
 
     /** retrieves information about user */
-    get userId(): string|undefined;
+    get userId(): string | undefined;
 
     /** retrieves information about user */
-    get userinfo(): UfeUserInfo|undefined;
+    get userinfo(): UfeUserInfo | undefined;
 
     /** Filters list of element returning only elements that fits the selector.
      * Selector is expression consisting of terms 
@@ -150,7 +150,7 @@ export interface UfeRegistry {
      * 
      */
     filterElements<T extends UfeElement>(elements: Array<T>, selector?: string): Array<T>
-    
+
 }
 
 /**  use this function to reliable retrieve instance of 
@@ -162,29 +162,29 @@ export const getUfeRegistryAsync = () => UfeRegistryImpl.instanceAsync(false);
  **/
 export function installUfeRegistry() {
     window.addEventListener("load", async _ => {
-        if(window.ufeRegistry) return;
+        if (window.ufeRegistry) return;
         UfeRegistryImpl.instanceAsync(true);
-    }) 
+    })
 }
 
 // implementation of the interface
-class UfeRegistryImpl implements UfeRegistry{
+class UfeRegistryImpl implements UfeRegistry {
 
-    private constructor() {};
+    private constructor() { };
 
-    private webConfig: UfeConfiguration|null = null;
+    private webConfig: UfeConfiguration | null = null;
 
     public readonly router: Router = createRouter();
 
-    get userId(): string|undefined {
-       return  this.webConfig?.user?.id;
+    get userId(): string | undefined {
+        return this.webConfig?.user?.id;
     }
 
-    get userinfo(): UfeUserInfo|undefined {
+    get userinfo(): UfeUserInfo | undefined {
         return this.webConfig?.user;
     }
 
-    public href(href: string, router = this.router, stopPropagating = false)  {
+    public href(href: string, router = this.router, stopPropagating = false) {
         return {
             href,
             onClick: (ev: any) => {
@@ -195,8 +195,8 @@ class UfeRegistryImpl implements UfeRegistry{
                     return;
                 }
                 ev?.preventDefault();
-                if(stopPropagating) {
-                    ev?.stopPropagation(); 
+                if (stopPropagating) {
+                    ev?.stopPropagation();
                     ev?.stopImmediatePropagation();
                 }
                 router?.push(href);
@@ -204,69 +204,68 @@ class UfeRegistryImpl implements UfeRegistry{
         };
     };
 
-    private _basePathValue:string|null = null;
+    private _basePathValue: string | null = null;
 
-    public  get basePath() {
-        if(! this._basePathValue ) {
+    public get basePath() {
+        if (!this._basePathValue) {
             this._basePathValue = new URL(document.baseURI).pathname || "/";
-            if(! this._basePathValue.endsWith('/')) { this._basePathValue + '/'}
+            if (!this._basePathValue.endsWith('/')) { this._basePathValue + '/' }
         }
         return this._basePathValue;
     }
 
-    public  rebasePath( path: string  ) {
+    public rebasePath(path: string) {
         if (path.startsWith('/')) {
             path = path.slice(1)
         }
         return this.basePath + path
     }
 
-    
+
     private async loadComponents() {
-        if(this.webConfig != null) {
+        if (this.webConfig != null) {
             return this.webConfig;
         }
         else {
-            
+
             let response = await fetch(`${this.basePath}fe-config`);
-            if(response.status == 404) {
+            if (response.status == 404) {
                 this.webConfig = null
                 return;
             }
-            this.webConfig  = await response.json();
+            this.webConfig = await response.json();
             let preloads = this.webConfig != null ? this.webConfig.preload : [];
             await this.preloadDependenciesAsync(preloads)
         }
     }
 
-    static async instanceAsync(create:boolean = false): Promise<UfeRegistry> {
-        if(create){
-            const ufeRegistry =  new UfeRegistryImpl();
+    static async instanceAsync(create: boolean = false): Promise<UfeRegistry> {
+        if (create) {
+            const ufeRegistry = new UfeRegistryImpl();
             await ufeRegistry.loadComponents();
             await ufeRegistry.createAppShell();
             window.ufeRegistry = ufeRegistry;
         }
-        
-        return new Promise(async ( resolve, _) => {
-            while(!(window.ufeRegistry) )
-            {
+
+        return new Promise(async (resolve, _) => {
+            while (!(window.ufeRegistry)) {
                 await new Promise(resolve => setTimeout(resolve, 250));
             }
             resolve(window.ufeRegistry);
         })
     }
 
-    navigableApps(selector: string = "" ): UfeWebApp[]  {
+    navigableApps(selector: string = ""): UfeWebApp[] {
         return this
-            .matchSelector(this.webConfig?.apps ?? [],selector)
-            .sort( (a, b) => b.priority  - a.priority)
-            .map( _ => {
+            .matchSelector(this.webConfig?.apps ?? [], selector)
+            .sort((a, b) => b.priority - a.priority)
+            .map(_ => {
                 _.isActive = location.pathname.startsWith(this.rebasePath(_.path))
                 return _
             });
     }
 
-    contextElements(context: string, selector:string = ""): UfeContext[]  {
+    contextElements(context: string, selector: string = ""): UfeContext[] {
         return this
             .matchSelector(this.webConfig?.contexts ?? [], selector)
             .filter(_ => _.contextNames.includes(context));
@@ -275,98 +274,116 @@ class UfeRegistryImpl implements UfeRegistry{
     elementHtmlText(app: UfeElement): string {
         let content = `<${app.element}`;
         app.attributes.forEach(attribute => {
-        content += ` ${attribute.name}="${attribute.value}"`;
+            content += ` ${attribute.name}="${attribute.value}"`;
         });
         content += `></${app.element}>`;
         return content;
     }
 
-    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any }):any {
+    loadAndRenderElement(element: UfeElement, extraAttributes?: { [name: string]: any }): any {
         this.preloadDependenciesAsync([element]);
         const El = element.element;
-        
+
         const attr = Object.assign(
-            {}, 
-            extraAttributes, 
-            element.attributes.reduce( 
-                (acc, a) => { 
+            {},
+            extraAttributes,
+            element.attributes.reduce(
+                (acc, a) => {
                     acc[a.name] = a.value;
-                    return acc}, {} as {[name:string]:any
+                    return acc
+                }, {} as {
+                    [name: string]: any
                 })
         );
-        return (<El { ...attr }></El>)
+        return (<El {...attr}></El>)
     }
 
     async preloadDependenciesAsync(modules: UfeModule[]) {
         modules
-            .filter( _ => _.styles?.length )
-           .forEach( this.preloadStyles ); 
+            .filter(_ => _.styles?.length)
+            .forEach(this.preloadStyles);
 
         const loads = [...new Set(modules
             .filter(_ => _.load_url?.length)
             .map(_ => _.load_url))]
-            .map(_ => import(_) as Promise<{}>); 
-        await Promise.all(loads).catch( reason => {
+            .map(_ => import(_) as Promise<{}>);
+        await Promise.all(loads).catch(reason => {
             console.error(`Some of the dependencies failed to load: ${reason}`);
         });
-        
+
     }
 
     private preloadStyles(module: UfeModule) {
+        const metas = document.getElementsByTagName('meta');
+        let cspNonce = ""
+        // combine with page selector specifier
+        for (let i = 0; i < metas.length; i++) {
+            if (metas[i].getAttribute('name') === "csp-nonce") {
+                const content = metas[i].getAttribute('content');
+                if (content) {
+                    cspNonce = content;
+                    break;
+                }
+            }
+        }
         module.styles
-            ?.forEach( abs => {
-                var head  = document.getElementsByTagName('head')[0];
-                var link  = document.createElement('link');
-                
-                link.rel  = 'stylesheet';
+            ?.forEach(abs => {
+                var head = document.getElementsByTagName('head')[0];
+                var link = document.createElement('link');
+
+                link.rel = 'stylesheet';
                 link.type = 'text/css';
                 link.href = abs;
                 link.media = 'all';
+                if(cspNonce) {
+                    link.setAttribute('nonce', cspNonce);
+                }
                 head.appendChild(link);
-            }) 
+            })
     }
 
-    private matchSelector<T extends UfeElement>( elements: T[], selector:string ):  T[]  {
-        if( elements === undefined  || elements === null || elements.length == 0) return [];
-        const metas =  document.getElementsByTagName('meta');
+    private matchSelector<T extends UfeElement>(elements: T[], selector: string): T[] {
+        if (elements === undefined || elements === null || elements.length == 0) return [];
+        const metas = document.getElementsByTagName('meta');
         let serverSelector = ""
         // combine with page selector specifier
         for (let i = 0; i < metas.length; i++) {
             if (metas[i].getAttribute('name') === "ufe-selector") {
-              const content =  metas[i].getAttribute('content');
-              if(content) {
-                serverSelector = content};
-              }
+                const content = metas[i].getAttribute('content');
+                if (content) {
+                    serverSelector = content
+                };
             }
+        }
         // filter applications by selector
-        return this.filterElements( 
-            this.filterElements(elements, serverSelector), 
-            selector) 
+        return this.filterElements(
+            this.filterElements(elements, serverSelector),
+            selector)
     };
 
     filterElements<T extends UfeElement>(elements: T[], selector?: string | undefined): T[] {
-        if(!selector){
+        if (!selector) {
             return elements;
         }
         const parser = new SelectorParser();
         const expression = parser.parse(selector) as SelectorExpression;
-        return elements.filter(_ => this.evaluateSelector( _, expression))
-        
+        return elements.filter(_ => this.evaluateSelector(_, expression))
+
     }
 
-    private evaluateSelector<T extends UfeElement>(element: T, expression: SelectorExpression) : boolean {
-        
-        switch(expression.operation){
-            case "not": 
-                return  ! this.evaluateSelector(element, expression.operands[0] as SelectorExpression)
+    private evaluateSelector<T extends UfeElement>(element: T, expression: SelectorExpression): boolean {
+
+        switch (expression.operation) {
+            case "not":
+                return !this.evaluateSelector(element, expression.operands[0] as SelectorExpression)
             case "exists": {
                 const l = expression.operands[0] as string
-                return   !!element.labels && !!element.labels[l]
+                return !!element.labels && !!element.labels[l]
             }
             case "equals": {
                 const l = expression.operands[0] as string
                 const v = expression.operands[1] as string
-                return   !!element.labels && element.labels[l]==v
+                return !!element.labels && element.labels[l] == v
             }
             case "and": {
                 const left = expression.operands[0] as SelectorExpression;
@@ -383,14 +400,14 @@ class UfeRegistryImpl implements UfeRegistry{
     }
 
     private async createAppShell() {
-        const metas =  document.getElementsByTagName('meta');
+        const metas = document.getElementsByTagName('meta');
         var context: string = "";
         for (let i = 0; i < metas.length; i++) {
             if (metas[i].getAttribute('name') === "ufe-shell-context") {
-              context =  metas[i].getAttribute('content') ?? "";
-              break;
+                context = metas[i].getAttribute('content') ?? "";
+                break;
             }
-          }
+        }
         const shell = this.contextElements(context)[0] || {
             element: "ufe-default-shell",
             attributes: [],
@@ -400,10 +417,10 @@ class UfeRegistryImpl implements UfeRegistry{
         await this.preloadDependenciesAsync([shell]);
 
         const element = document.createElement(shell.element);
-        shell.attributes.forEach( 
+        shell.attributes.forEach(
             attribute => element.setAttribute(
                 attribute.name, attribute.value));
-        
+
         document.body.appendChild(element);
     }
 }
